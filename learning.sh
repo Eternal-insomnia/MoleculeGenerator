@@ -14,4 +14,4 @@ conda activate smiles_rnn
 
 # python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
 
-python scripts/train_prior.py -i data/smiles_list.smi -o output -s ckpt --n_epochs 10 RNN
+python scripts/train_prior.py -i output/processed_smiles.smi -o output -s ckpt --n_epochs 10 RNN

@@ -12,7 +12,7 @@ def main():
 			continue
 		can_smi = Chem.MolToSmiles(mol, canonical=True)
 		smiles.add(str(can_smi))
-	with open("output/fine_tuned_smiles.smi", "w", encoding="utf-8") as file:
+	with open("output/processed_smiles.smi", "w", encoding="utf-8") as file:
 		for smi in smiles:
 			file.write(smi + "\n")
 

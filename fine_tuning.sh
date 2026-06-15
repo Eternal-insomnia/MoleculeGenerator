@@ -14,4 +14,4 @@ conda activate smiles_rnn
 
 # python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
 
-python scripts/fine_tune.py -p priors/ChEMBL28pur.ckpt -i data/smiles_list.smi -s ckptx -o output --model RNN
+python scripts/fine_tune.py -p priors/ChEMBL28pur.ckpt -i output/processed_smiles.smi -s ckpt -o output --model RNN
