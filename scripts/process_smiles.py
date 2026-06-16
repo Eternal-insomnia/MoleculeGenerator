@@ -4,7 +4,10 @@ from rdkit import Chem
 def main():
 	smiles = set()
 	df = pd.read_csv("data/smiles_list.csv")
-	for smi in df["SMILES"]:
+
+	df_ic50 = df[df["Activity_type"] == "IC50"]
+
+	for smi in df_ic50["SMILES"]:
 		mol = Chem.MolFromSmiles(smi)
 		if mol is None:
 			print(f"Error with {smi}. Mol not found")
