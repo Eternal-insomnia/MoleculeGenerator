@@ -10,7 +10,8 @@ from itertools import chain
 from os import path
 
 import torch
-from rdkit import rdBase
+from rdkit import Chem, rdBase
+from rdkit.Chem import Descriptors, QED
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
@@ -37,6 +38,27 @@ logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 logger.addHandler(ch)
+
+
+def compute_properties(smiles_list, device):
+    mws, qeds, logs = [], [], []
+    for smi in smiles_list:
+        mol = Chem.MolFromSmiles(smi)
+        if mol:
+            mws.append(Descriptors.MolWt(mol))
+            qeds.append(QED.qed(mol))
+            logs.append(Descriptors.MolLogP(mol))
+        else:
+            # Если SMILES некорректна – подставьте значение по умолчанию (например 0.0)
+            # или обработайте иначе, чтобы не сломать расчёт.
+            mws.append(0.0)
+            qeds.append(0.0)
+            logs.append(0.0)
+    return (
+        torch.tensor(mws, dtype=torch.float, device=device),
+        torch.tensor(qeds, dtype=torch.float, device=device),
+        torch.tensor(logs, dtype=torch.float, device=device),
+    )
 
 
 # ---- Main ----
@@ -127,6 +149,16 @@ def main(args):
     logger.info("Creating vocabulary")
     smiles_vocab = create_vocabulary(smiles_list=all_smiles, tokenizer=tokenizer)
 
+    # Compute target properties
+    mws, qeds, logs = compute_properties(all_smiles, device)
+
+    # Compute stats
+    target_mw = torch.tensor(sum(mws) / len(mws), device=device)
+    target_qed = torch.tensor(sum(qeds) / len(qeds), device=device)
+    target_logp = torch.tensor(sum(logs) / len(logs), device=device)
+
+    logger.info(f"Target properties: MW={target_mw:.2f}, QED={target_qed:.2f}, LogP={target_logp:.2f}")
+
     # Create dataset
     dataset = Dataset(
         smiles_list=train_smiles, vocabulary=smiles_vocab, tokenizer=tokenizer
@@ -198,6 +230,9 @@ def main(args):
     # Setup optimizer TODO update to adaptive learning
     optimizer = torch.optim.Adam(prior.network.parameters(), lr=args.learning_rate)
 
+    alpha_nll = 1.0
+    alpha_prop = 0.1  # weight for property regularization
+
     # Train model
     logger.info("Beginning training")
     global_step = 0
@@ -212,8 +247,27 @@ def main(args):
             input_vectors = batch.long()
 
             # Calculate loss
-            log_p = prior.likelihood(input_vectors)
-            loss = log_p.mean()
+            log_p = prior.likelihood(input_vectors) # (B,)
+            nll_loss = log_p.mean()
+
+            smiles_batch = []
+            for seq in input_vectors.cpu().numpy():
+                tokens = prior.vocabulary.decode(seq)
+                smi = prior.tokenizer.untokenize(tokens)
+                smiles_batch.append(smi)
+
+            # Compute predicted properties for these "true" SMILES
+            pred_mws, pred_qeds, pred_logs = compute_properties(smiles_batch, device)
+
+            # Compute MSE deviation from target
+            mw_loss = ((pred_mws - target_mw) ** 2).mean()
+            qed_loss = ((pred_qeds - target_qed) ** 2).mean()
+            logp_loss = ((pred_logs - target_logp) ** 2).mean()
+
+            prop_loss = (mw_loss + qed_loss + logp_loss) / 3.0
+
+            # Combined loss
+            loss = alpha_nll * nll_loss + alpha_prop * prop_loss
 
             # Calculate gradients and take a step
             optimizer.zero_grad()

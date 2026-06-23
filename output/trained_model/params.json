@@ -1,6 +1,6 @@
 {
   "train_smiles": "output/processed_smiles.smi",
-  "output_directory": "D:\\Projects\\Python\\molecule_generator\\output",
+  "output_directory": "D:\\Projects\\Python\\molecule_generator\\output\\trained_model",
   "suffix": "ckpt",
   "grammar": "SMILES",
   "randomize": false,
@@ -20,6 +20,6 @@
   "dropout": 0.0,
   "learning_rate": 0.001,
   "layer_normalization": false,
-  "total_time_mins": 1.790181783835093,
-  "epoch_time_mins": 0.1790181783835093
+  "total_time_mins": 1.943691619237264,
+  "epoch_time_mins": 0.19436916192372639
 }
